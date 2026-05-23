@@ -1,0 +1,40 @@
+# eclipse
+bin
+*.launch
+.settings
+.metadata
+.classpath
+.project
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# gradle
+build
+.gradle
+
+# other
+eclipse
+run
+runs
+run-data
+
+repo
+
+# local config — copied from .example by scripts/setup.sh, then edited per-host
+gradle.properties
+config.sh
+
+# python cache from tools/
+__pycache__
+*.pyc
+
+# stray logs from older runs
+p2.log
+
+# claude-code project-local config
+.claude

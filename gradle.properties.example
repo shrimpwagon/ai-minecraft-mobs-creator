@@ -1,0 +1,57 @@
+# Copy this to `gradle.properties` and fill in your values.
+# scripts/setup.sh can do this for you interactively.
+
+org.gradle.jvmargs=-Xmx2G
+org.gradle.daemon=true
+org.gradle.debug=false
+
+# Parchment mappings (human-readable parameter names). Pin to the same MC version below.
+neogradle.subsystems.parchment.minecraftVersion=1.21.1
+neogradle.subsystems.parchment.mappingsVersion=2024.11.17
+
+# Minecraft + NeoForge versions
+minecraft_version=1.21.1
+minecraft_version_range=[1.21.1,1.22)
+neo_version=21.1.230
+neo_version_range=[21.1.0,)
+loader_version_range=[4,)
+
+## Mod metadata (edit these for your mod) ====================================
+
+# Lower-case alphanumeric + underscores only. This must match:
+#   - the directory under src/main/java/<group_id_dirs>/<mod_id>/
+#   - the directory under src/main/resources/assets/<mod_id>/
+#   - the directory under src/main/resources/data/<mod_id>/
+#   - every "<mod_id>:..." reference in JSON/Java
+# If you change this from the default `aitemplate`, run scripts/rename_mod.sh
+# to update every reference automatically. (scripts/setup.sh offers to do it.)
+mod_id=aitemplate
+
+# Human-readable name that shows up in the in-game Mods list.
+mod_name=AI Template Mod
+
+# License declared in the Mods list. Match the LICENSE file at repo root.
+mod_license=MIT
+
+# SemVer-ish. Bump on each release.
+mod_version=1.0.0
+
+# Reverse-DNS PARENT namespace — the Java package ends up at <mod_group_id>.<mod_id>/.
+# E.g. mod_group_id=com.alice + mod_id=mymod  →  src/main/java/com/alice/mymod/
+mod_group_id=com.aicreator
+
+# Shown in the Mods list. Comma-separate multiple authors.
+mod_authors=YourName
+
+# Shown in the Mods list. Free-form sentence.
+mod_description=A NeoForge 1.21.1 mod built with the ai-minecraft-mobs-and-blocks-creator scaffold.
+
+## Library deps =============================================================
+
+# GeckoLib — runtime-loaded entity models + animations from .geo.json / .animation.json
+geckolib_version=4.8.4
+geckolib_version_range=[4.8,5.0)
+
+# henkelmax/corelib — OBJEntityRenderer for polygonal (Wavefront .obj) entities (Tier B)
+corelib_version=1.21.1-2.1.11
+corelib_version_range=[1.21.1-2.1.0,1.21.2)
