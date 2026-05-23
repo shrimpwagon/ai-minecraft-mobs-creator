@@ -67,8 +67,8 @@ The agent reads **[CLAUDE.md](CLAUDE.md)** on first encounter. From that single 
   - `tools/corelib_obj_export.py` is a Blender-Python module that the installer symlinks into Blender's user modules dir. The agent imports it from inside any Blender Python call (via the BlenderMCP socket) to write a corelib-compatible OBJ with the four format gotchas (face triplets, V-flip, triangulation, CCW winding check) handled.
 - For Tier B (polygonal) mobs, the agent drives Blender directly via the BlenderMCP socket — building the mesh with bmesh (rotated cubes, spheres, cones, sculpted geometry, anything Blender can express), assigning UVs however it wants, then calling `corelib_obj_export` to dump the OBJ. No PARTS-list constraint, no per-mob driver scripts.
 - Before declaring a polygonal mob done, the agent renders multi-angle previews in the same Blender call and **pauses for user creative review** before writing any Java.
-- For blocks, items, weapons, and armor the agent writes Java + JSON + texture-gen directly from the rules in CLAUDE.md / DEVELOPMENT.md; there are no helpers because there are no gotchas to prevent.
-- For full technical reference (rendering tiers, OBJ format details, headless Blender setup), the agent reads **[DEVELOPMENT.md](DEVELOPMENT.md)**.
+- For blocks, items, weapons, and armor the agent writes Java + JSON + texture-gen directly from the rules in CLAUDE.md; there are no helpers because there are no gotchas to prevent.
+- All technical reference (rendering tiers, OBJ format gotchas, headless Blender landmines, codex landmines, Java/JSON templates) lives in the Technical reference section at the bottom of **[CLAUDE.md](CLAUDE.md)**. Everything the agent needs is in that one file.
 
 The agent should not need to "poke around" to figure out the workflow. If it does, that's a doc bug — open an issue.
 
@@ -76,9 +76,8 @@ The agent should not need to "poke around" to figure out the workflow. If it doe
 
 ```
 .
-├── README.md                        ← this file
-├── CLAUDE.md                        ← agent-only instructions (start here if you are an AI agent)
-├── DEVELOPMENT.md                   ← full dev reference (gotchas, tiers, Blender setup, layout)
+├── README.md                        ← this file (human-facing docs)
+├── CLAUDE.md                        ← all agent-facing rules + technical reference
 ├── LICENSE                          ← MIT
 ├── gradle.properties.example        ← committed template
 ├── config.example.sh                ← committed template
@@ -87,7 +86,7 @@ The agent should not need to "poke around" to figure out the workflow. If it doe
 ├── scripts/                         ← one-shot host setup + project management
 │   ├── setup.sh                     ← first-time interactive setup
 │   ├── rename_mod.sh                ← rename mod_id throughout the source
-│   ├── install_blender_mcp.sh       ← idempotent Blender + BlenderMCP installer
+│   ├── install_blender_mcp.sh       ← idempotent Blender + BlenderMCP installer (Tier B only)
 │   └── blender_mcp_start_headless.{sh,py}   ← the Blender server launcher
 │
 ├── tools/                           ← narrow helpers — only where they prevent real failure modes
@@ -96,12 +95,50 @@ The agent should not need to "poke around" to figure out the workflow. If it doe
 │                                      (symlinked into ~/.config/blender/<v>/scripts/modules/ by the installer
 │                                       so any Blender Python call can `import corelib_obj_export` directly)
 │
-└── src/                             ← standard NeoForge MDK Java + resources
+└── src/main/                        ← standard NeoForge MDK Java + resources
+    ├── java/com/<group>/<mod_id>/   ← Java source: entity/, block/, client/, Mod*.java, MyFirstMod.java
+    └── resources/
+        ├── META-INF/neoforge.mods.toml
+        ├── assets/<mod_id>/         ← animations/, blockstates/, geo/, lang/, models/, textures/
+        └── data/<mod_id>/loot_table/{blocks,entities}/
 ```
+
+## Build & deploy (after a mob/block has been added)
+
+```sh
+source config.sh                                  # loads MULTIMC_MODS_DIR + PREVIEW_OUTPUT_DIR
+./gradlew build                                   # → build/libs/<mod_id>-<version>.jar
+cp build/libs/*.jar "$MULTIMC_MODS_DIR"           # deploy to your MultiMC instance
+```
+
+Your MultiMC instance also needs the **GeckoLib** and **henkelmax/corelib** runtime jars. They're declared as Maven deps for the build, but Minecraft needs them present at runtime. `scripts/setup.sh` offers to auto-download and install both into your instance during first-time setup; or fetch them yourself from CurseForge/Modrinth.
+
+Reload the world (or load a fresh one), summon the mob with `/summon <mod_id>:<name>`, and you're testing.
+
+## Headless Blender install (Tier B mobs only)
+
+Tier B (polygonal) mobs need a headless Blender exposing the BlenderMCP socket on TCP 9876. Skip this entire section if you only plan to build Tier A (cube-based) mobs and blocks.
+
+```sh
+scripts/install_blender_mcp.sh             # interactive — sudo, installs Blender + addon + launcher
+scripts/install_blender_mcp.sh --check     # report what's installed, change nothing
+```
+
+This installs Blender 5.x to `/opt/blender/`, the patched BlenderMCP addon ([upstream PR #252](https://github.com/ahujasid/blender-mcp/pull/252) — needed for `-b` headless mode), `uv` for `uvx blender-mcp`, and symlinks `tools/corelib_obj_export.py` into Blender's user-modules dir.
+
+Start / verify / stop the server:
+
+```sh
+nohup scripts/blender_mcp_start_headless.sh > /tmp/blender-mcp.log 2>&1 &     # background
+ss -tlnp | grep 9876                                                            # verify listening
+pkill -f "blender -b --python.*blender_mcp_start_headless"                      # stop
+```
+
+The agent will auto-start the launcher in the background when it needs Tier B — so usually you don't have to touch this after the one-time install.
 
 ## The two rendering tiers
 
-The agent picks one of two rendering tiers per mob, based on the visual look you describe. Full decision rubric in [DEVELOPMENT.md](DEVELOPMENT.md#entity-rendering-tiers).
+The agent picks one of two rendering tiers per mob, based on the visual look you describe. Full decision rubric + technical depth lives in [CLAUDE.md](CLAUDE.md).
 
 | Tier | Look | Library | Animation |
 |---|---|---|---|

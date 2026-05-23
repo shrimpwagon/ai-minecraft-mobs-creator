@@ -1,6 +1,6 @@
 # CLAUDE.md — agent instructions for this repo
 
-**You are reading this because you're working in `ai-minecraft-mobs-creator`. Read this file fully, then read [DEVELOPMENT.md](DEVELOPMENT.md) before doing anything else. Together these two docs are enough — you should not need to "poke around" the codebase to figure out the workflow.**
+**You are reading this because you're working in `ai-minecraft-mobs-creator`. Read this file fully before doing anything else. It's the complete reference — behavioral rules at the top, technical depth at the bottom — and you should not need to "poke around" the codebase to figure out the workflow. Human-facing how-to (Blender install, build commands, file layout) is in [README.md](README.md) if you need to point the user at it.**
 
 ## Important framing: helpers stay narrow, you stay in charge of geometry
 
@@ -13,7 +13,7 @@ That's everything. **There is no mesh-building helper, no per-mob driver script,
 
 The **technical constraints** that DO bind you:
 
-- For corelib (Tier B) OBJs: the four gotchas (face triplet `v/vt/vn`, V-flip, triangulation, CCW outward). `corelib_obj_export.export_corelib_obj()` handles them all — use it. If you hand-write an OBJ for some reason, address all four yourself; see DEVELOPMENT.md "The four critical OBJ gotchas."
+- For corelib (Tier B) OBJs: the four gotchas (face triplet `v/vt/vn`, V-flip, triangulation, CCW outward). `corelib_obj_export.export_corelib_obj()` handles them all — use it. If you hand-write an OBJ for some reason, address all four yourself; see "The four critical OBJ gotchas (Tier B)" in the Technical reference section below.
 - The rendering libraries are fixed by `build.gradle` — GeckoLib (Tier A cubes with skeletal animation), corelib (Tier B static / whole-model-animated polygonal). Picking anything else means adding a dependency.
 - Mod registration goes through `ModBlocks` / `ModEntities` / `ModItems` / `ModCreativeTab` / `MyFirstMod.java` and the lang file at `assets/<mod_id>/lang/en_us.json`. Structural, not optional.
 
@@ -34,7 +34,7 @@ A tooling scaffold for AI-assisted creation of custom Minecraft mobs, blocks, it
 
 For Tier B mobs specifically, **step 3 has a mandatory pause** — see "Preview + pause for user review" below. The user must confirm the model looks right before you commit to writing Java.
 
-DEVELOPMENT.md has the full technical reference; this file has only the *behaviors* the user expects from you.
+Behavioral rules are up top; technical depth lives in the "Technical reference" section at the bottom of this file.
 
 ## REQUIRED: clarify before building any new mob, block, item, weapon, or armor
 
@@ -72,13 +72,13 @@ The file is a single-snapshot, not a history log — each new build overwrites. 
 
 The scaffold ships with **no example mobs or blocks** in `src/`, and that's deliberate. After one or more mobs have been built in a session (or in a downstream working repo with many prior builds), the temptation will return: *"the existing mob is Tier A, so this new one should be Tier A too,"* or *"the last mob used spheres, so I'll do spheres here."* **No.** Each new asset is built fresh from the user's answers (or saved preferences in `.claude/mob_preferences.md`). If you catch yourself thinking *"the existing mobs are mostly X, so X is a safe default,"* stop — that's exactly the bias the user wants you to drop.
 
-**Default for Java/JSON skeleton structure: build from scratch.** Use your NeoForge 1.21.1 training, the official docs, and the rules in DEVELOPMENT.md as *reference material* — but do not silently copy-paste from any template (including the [DEVELOPMENT.md → Tier B mob templates](DEVELOPMENT.md#tier-b-mob--java--json-templates-copy-paste-reference)) or any existing in-repo file. Even the DEVELOPMENT.md templates encode prior structural choices (default goal sets, attribute values, registration patterns, hitbox sizes, parent classes); silently applying them biases the agent toward "standard humanoid mob" shapes regardless of what the user actually asked for.
+**Default for Java/JSON skeleton structure: build from scratch.** Use your NeoForge 1.21.1 training, the official docs, and the rules in the Technical reference section below as *reference material* — but do not silently copy-paste from any template (including the "Tier B Java + JSON templates" section below) or any existing in-repo file. Even those templates encode prior structural choices (default goal sets, attribute values, registration patterns, hitbox sizes, parent classes); silently applying them biases the agent toward "standard humanoid mob" shapes regardless of what the user actually asked for.
 
 **ASK the user explicitly before using any pre-existing thing as a starting point.** Offer three named options:
 
 > *"For the structural Java/JSON skeleton, I can:*
 >   *(a) **Build from scratch** — lowest bias, I'll write boilerplate from first principles tailored to what you described.*
->   *(b) **Start from the generic DEVELOPMENT.md template** — saves a couple minutes of boilerplate writing; still carries the template's default patterns (humanoid hitbox, standard goal set, etc.) which I'll then tailor.*
+>   *(b) **Start from the generic template** (Technical reference → "Tier B Java + JSON templates" below) — saves a couple minutes of boilerplate writing; still carries the template's default patterns (humanoid hitbox, standard goal set, etc.) which I'll then tailor.*
 >   *(c) **Copy the structure of an existing in-repo entity** (`<X>Entity.java` — because it has `<specific pattern>` that maps to what you asked for) — fastest if the match is close, biggest bias risk if it's not.*
 > *Which do you prefer?"*
 
@@ -126,7 +126,7 @@ Even after the user answers Q1c, the agent has strong gravitational pull back to
 - **Limbs** → `primitive_cylinder_add(vertices=8)`; for the modern tier, use bmesh to taper (scale the top vert loop smaller than the bottom). NOT stacked cubes.
 - **Joints** (shoulders / hips / knees) → small spheres at the limb radius. Eliminates the visible cube-edge seam where parts meet.
 - **Torsos** → start from a cube, enter bmesh, scale top/bottom face loops to taper. A pure axis-aligned cube torso always reads as Minecraft.
-- **Don't open any existing `.obj` / `.geo.json` / entity Java for style cues** — even if a prior session built one. Use the copy-paste templates in DEVELOPMENT.md for structural skeleton, and build the mesh fresh from the user's Q1c answer + visual description.
+- **Don't open any existing `.obj` / `.geo.json` / entity Java for style cues** — even if a prior session built one. Use the copy-paste templates further down (Technical reference → "Tier B Java + JSON templates") for structural skeleton, and build the mesh fresh from the user's Q1c answer + visual description.
 - **Smell check before exporting:** if your `execute_blender_code` call has 15+ consecutive `primitive_cube_add` lines and Q1c was NOT "Minecraft-style," stop and rewrite the affected parts with spheres/cylinders/bmesh. That pattern is the bias surfacing — catch it before showing the user.
 
 #### When iterating: regenerate the WHOLE atlas in one call
@@ -449,7 +449,7 @@ Path convention:
 
 ## Default to AI textures (codex image_gen)
 
-When the user doesn't specify, use AI-generated textures via `tools/codex_image.py` — it's the right default for most blocks, items, weapons, armor, and Tier B mob textures. The library handles all four codex landmines automatically. **Multiple textures can be generated in parallel safely** — see DEVELOPMENT.md "Generating AI textures" for the parallel batching pattern.
+When the user doesn't specify, use AI-generated textures via `tools/codex_image.py` — it's the right default for most blocks, items, weapons, armor, and Tier B mob textures. The library handles all four codex landmines automatically. **Multiple textures can be generated in parallel safely** — see "Generating AI textures" further down for the parallel batching pattern.
 
 Use hand-coded Pillow only when:
 - The user explicitly asked for "pixel-by-pixel" / "let me paint it"
@@ -457,6 +457,24 @@ Use hand-coded Pillow only when:
 - The codex output doesn't render correctly and you need a fallback
 
 **For Tier A mob skins specifically** (cube-model UV-mapped 64×64 PNGs in vanilla Steve layout), Pillow is usually better — codex `image_gen` doesn't respect UV cell boundaries reliably. Documented in your global `feedback_minecraft_skins.md` memory.
+
+### Codex transparency-checkerboard trap (item icons that need real alpha)
+
+**Codex routinely paints the editor's transparency-indicator checkerboard pattern as actual opaque pixels** when you ask it for a transparent-background icon. The PNG ships with a baked-in grey-checker rectangle where transparency was supposed to be — looks normal in some image viewers but renders as a visible checker texture in the inventory slot in-game. Caught post-deploy on the cheese-powder-packet icon (2026-05-23).
+
+**Why visual self-eval misses it:** some image viewers render the baked checkerboard the same way they'd render real transparency (with their own UI checker behind the alpha channel), so the agent can't reliably tell from a Read of the PNG whether the checker is real transparency or opaque pixels. The user opening the file in a tool that handles alpha correctly catches the difference instantly.
+
+**How to apply:**
+
+1. **Don't ask codex for "transparent background"** in the prompt — that phrasing triggers the checkerboard-as-pixels failure. Ask for a SOLID color background instead (white, single color, neutral), then flood-fill it to transparent in Pillow post-processing:
+   ```python
+   from PIL import Image, ImageDraw
+   im = Image.open(path).convert("RGBA")
+   ImageDraw.floodfill(im, (0, 0), (0, 0, 0, 0), thresh=30)
+   im.save(path)
+   ```
+2. **For pixel-art icons ≤ 32×32, prefer hand-drawn Pillow** over codex. Guarantees real transparency + crisp pixel boundaries, and codex's value-add at that small a canvas is low anyway. The mac-n-cheese powder-packet icon's second attempt switched to Pillow and was clean in one pass.
+3. **At Gate 2, explicitly invite the user to check transparency** on each item icon — *"the spawn-egg box and powder packet are at `<path>`; please verify the backgrounds are actually transparent (open in an image viewer that respects alpha) — codex sometimes bakes the editor's transparency checker as opaque pixels and I can't always tell."* This counts as one of the bundled visual assets per the Gate 2 rule.
 
 ## How to build a Tier B (polygonal) mob — direct Blender MCP flow
 
@@ -466,7 +484,7 @@ This replaces every old "PARTS list" / "obj_writer" / "per-mob driver script" pa
 
 The scaffold ships with no example mobs and the geometry of any mob built by a prior session must NOT be read as a style template — not the `.obj`, not the `.geo.json`, not the entity Java. The user wants every new Tier B mob built fresh from their Q1c answer + visual description.
 
-**For the structural Java/JSON skeleton, default to building from scratch** — see "Build fresh by default — ASK before using ANY template or existing file as a starting point" above. The Tier B templates in [DEVELOPMENT.md](DEVELOPMENT.md#tier-b-mob--java--json-templates-copy-paste-reference) and any existing in-repo entity file are all opt-in starting points that require explicit user consent before use.
+**For the structural Java/JSON skeleton, default to building from scratch** — see "Build fresh by default — ASK before using ANY template or existing file as a starting point" above. The Tier B templates in the Technical reference section below and any existing in-repo entity file are all opt-in starting points that require explicit user consent before use.
 
 ### Entity coordinate convention
 
@@ -693,6 +711,100 @@ print("INDIVIDUAL RENDERS:", [p for _, p in individual])
 
 **Call 2 (optional)** — if a re-render is needed after a tweak, you can repeat the build steps or just adjust object positions / rotations and re-render. Tier B iteration is much faster than the Java edit-build-deploy loop — use it.
 
+### Build Tier B mobs as a SINGLE bmesh — not many juggled Blender objects
+
+For any non-trivial Tier B build (>~5 parts), build the whole mob as **one** bmesh, then convert to one Object, instead of creating many separate Blender objects with `bpy.ops.mesh.primitive_*_add` and juggling them. The multi-object pattern is fragile in headless `-b` mode and burned through 3+ iteration cycles in a prior build (mac-n-cheese plushy, 2026-05-23; Sailor Moon repeated the same bugs the next session) before this was understood.
+
+**Failure modes the multi-object pattern hits:**
+
+1. **`bpy.data.objects[-1]` doesn't return the most-recently-added object.** It's alphabetically sorted, not insertion-ordered. After `primitive_cube_add(name="torso") ; primitive_cylinder_add(name="arm")`, `objects[-1]` is `torso` (alphabetically last), not `arm`. Grabbing it then setting `scale`/`rotation_euler` rotates/scales the WRONG part. Manifests as: legs at the origin un-transformed, body floating into the sky, geometry scattered.
+2. **Stale-vertex reads after `v.co =` writes.** If you write to `v.co` in a bmesh, then read `obj.data.vertices` to compute a bbox or `dy` floor-drop, you get the PRE-write coords because the mesh wasn't `update()`-ed. Bbox-driven scaling then computes the wrong scale factor and the mob comes out wrong-sized.
+3. **`mathutils.Matrix.Scale(f, 4)` combined with translation can produce non-uniform results.** When you build `Matrix.Translation(...) @ Matrix.Scale(f, 4)` and apply it, the translation itself gets scaled in ways that break the "uniform scale around origin" expectation.
+4. **Object name collisions silently rename.** `primitive_cylinder_add(name="leg_l")` after a prior `cylinder_add` may produce a name like `leg_l.001` or fall back to `Cylinder` — and your subsequent lookup by name fails. The stray default-named object then floats in the scene contributing to the rendered image.
+
+**The single-bmesh pattern that avoids all four:**
+
+```python
+import bpy, bmesh, mathutils
+from corelib_obj_export import export_corelib_obj
+
+# Wipe scene as usual…
+
+# Single bmesh — every part is geometry inside this one mesh.
+bm = bmesh.new()
+
+def place_sphere(bm, center, radius=0.25, segments=16, ring_count=8):
+    """Add a uv-sphere to bm at `center` (mathutils.Vector). Returns the new faces."""
+    pre = set(bm.faces)
+    bmesh.ops.create_uvsphere(bm, u_segments=segments, v_segments=ring_count,
+                              radius=radius,
+                              matrix=mathutils.Matrix.Translation(center))
+    return [f for f in bm.faces if f not in pre]
+
+def place_cylinder(bm, center, radius=0.10, depth=0.6, axis="Z"):
+    """Cylinder = cone with equal radii. `axis` rotates the default Z-up cylinder."""
+    M = mathutils.Matrix.Translation(center)
+    if   axis == "X": M = M @ mathutils.Euler((0, math.radians(90), 0)).to_matrix().to_4x4()
+    elif axis == "Y": M = M @ mathutils.Euler((math.radians(90), 0, 0)).to_matrix().to_4x4()
+    pre = set(bm.faces)
+    bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=12,
+                          radius1=radius, radius2=radius, depth=depth, matrix=M)
+    return [f for f in bm.faces if f not in pre]
+
+def place_box(bm, center, size=(1,1,1), rot=(0,0,0)):
+    M = (mathutils.Matrix.Translation(center) @
+         mathutils.Euler(tuple(math.radians(a) for a in rot)).to_matrix().to_4x4() @
+         mathutils.Matrix.Diagonal((size[0], size[1], size[2], 1.0)))
+    pre = set(bm.faces)
+    bmesh.ops.create_cube(bm, size=1.0, matrix=M)
+    return [f for f in bm.faces if f not in pre]
+
+# Tag each part's faces so you can per-face-UV later (e.g. eyes get black, body gets atlas region).
+face_eye_left  = set(place_sphere(bm, mathutils.Vector((-0.06, -0.20, 1.65)), radius=0.015))
+face_eye_right = set(place_sphere(bm, mathutils.Vector(( 0.06, -0.20, 1.65)), radius=0.015))
+face_head      = set(place_sphere(bm, mathutils.Vector(( 0.00,  0.00, 1.60)), radius=0.18))
+# … etc for body / arms / legs / accessories …
+
+# Scale + drop-to-floor in ONE vertex pass — bm is the single source of truth, no stale reads.
+lo_y = min(v.co.z for v in bm.verts)  # Z is up in Blender scene
+hi_y = max(v.co.z for v in bm.verts)
+target_height = 1.95  # from Q1d
+factor = target_height / (hi_y - lo_y)
+for v in bm.verts:
+    v.co = mathutils.Vector((v.co.x * factor, v.co.y * factor, (v.co.z - lo_y) * factor))
+
+# Recalc outward normals once at the end so the exporter's winding check passes.
+bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+
+# Per-face UV assignment using the tagged sets:
+uv_layer = bm.loops.layers.uv.verify()
+for f in bm.faces:
+    if f in face_eye_left or f in face_eye_right:
+        for loop in f.loops: loop[uv_layer].uv = (0.0, 0.0)  # black pixel
+    else:
+        # planar-project onto the atlas region for that body part
+        for loop in f.loops: loop[uv_layer].uv = (loop.vert.co.x * 0.5 + 0.5,
+                                                  loop.vert.co.z * 0.5 + 0.5)
+
+# Build one Object from the bmesh, link to scene.
+me = bpy.data.meshes.new("plushy_mesh")
+bm.to_mesh(me); bm.free()
+plushy = bpy.data.objects.new("plushy", me)
+bpy.context.scene.collection.objects.link(plushy)
+
+# Export — pass `objects=` explicitly so the ground/preview plane isn't included.
+export_corelib_obj(path=OBJ_PATH, objects=[plushy])
+```
+
+Notes:
+- `bmesh.ops.create_*` operates on the bmesh directly (no Blender object needed). Use `matrix=` to place/orient/scale at create-time.
+- For curved tubes (a noodle, tail, ponytail, horn), generate vertex rings parametrically along a curve and bridge them: `bmesh.ops.bridge_loops(bm, edges=[…])` joins ring loops with quads.
+- Cylinders aren't a separate primitive — use `create_cone` with equal radii.
+- Scale + translate everything in one vertex pass at the end. Reads `bm.verts` directly — no `mesh.update()` dance.
+- `bmesh.ops.recalc_face_normals` once at the end fixes any CCW/CW issues before export.
+
+**Camera aiming caveat.** `to_track_quat`'s second arg is an axis string, restricted to `'X' / '-X' / 'Y' / '-Y' / 'Z' / '-Z'`. Passing a Vector raises `argument 2 must be str, not Vector`. For arbitrary up vectors (a tilted look-at, an offset top-down) build the look-at matrix by hand: `right = forward.cross(up).normalized(); up = right.cross(forward).normalized()`, then assemble a 3×3 from columns `[right, up, -forward]` and convert to Euler.
+
 ### Performance tip — overlap texture gen with the mesh build
 
 `codex image_gen` is the long pole (~30–120 seconds per call); the Blender build+export step is ~5–15 seconds. You can overlap them by firing both tool calls in the same response:
@@ -723,7 +835,7 @@ The texture itself is generated separately — usually with `tools/codex_image.p
 For Tier B mobs the workflow has **TWO review gates** after rendering the multi-angle preview JPGs. Both must pass before you proceed.
 
 **Gate 1 — your self-eval** (technical correctness):
-Render the six-angle preview grid (front / 90° side / 180° behind / three-quarter / close face / top-down — all tiled into `<name>_preview_grid.jpg` via ImageMagick) and look at it. Read ONLY the composite, not the individuals, to keep image-token cost low; open an individual only if the grid surfaces something you need to inspect at full res. Catches *technical* bugs — see the full checklist in DEVELOPMENT.md ("Tier B preview-eval checklist"). The **two recurring failure modes** you must check every time:
+Render the six-angle preview grid (front / 90° side / 180° behind / three-quarter / close face / top-down — all tiled into `<name>_preview_grid.jpg` via ImageMagick) and look at it. Read ONLY the composite, not the individuals, to keep image-token cost low; open an individual only if the grid surfaces something you need to inspect at full res. Catches *technical* bugs. The **two recurring failure modes** you must check every time:
 
 1. **Disconnected parts.** Adjacent body parts that should touch (head↔neck, neck↔torso, shoulder↔upper arm, elbow↔forearm, wrist↔hand, hip↔thigh, knee↔calf, ankle↔foot) frequently come out with visible gaps in the three-quarter view. The agent's eye misses these more often than the user's. Walk the body's connection graph explicitly on the three-quarter render: for each adjacent pair, is there visible empty space between them? If yes, the parent part needs to extend further OR the child needs to be repositioned to overlap by at least a few pixels. Re-render after fixing.
 
@@ -766,6 +878,22 @@ If the user clones this scaffold to start a new mod, the workflow is:
 
 If they ask you to "rename the mod to X", run `scripts/rename_mod.sh X com.<author>` (after updating `gradle.properties`).
 
+## Commit + push policy — per-session trust, ASK by default
+
+**The default for any fresh session in this repo is to ASK before committing.** After a logical unit of work, surface a clear *"ready to commit — should I push?"* prompt with the draft commit message. Wait for explicit go-ahead.
+
+**Per-session trust may be granted.** When the user says *"yes always commit and push any changes,"* *"you can auto-commit in this session,"* etc.:
+- That session may auto-commit + push at logical checkpoints WITHOUT asking each time
+- The trust is **session-scoped** — it does NOT carry to a different session, even on the same repo, even minutes later, even with the same user
+- Other concurrently-running sessions on the same repo still default to ASK
+
+**Guards that apply even with auto-commit trust:**
+
+1. **`git status --short` first.** If unexpected uncommitted files show up (especially in `src/`, `CLAUDE.md`, docs), they may be another concurrent session's in-progress work or your own forgotten edits. Read each one and decide deliberately whether to include — don't just sweep them in. This bit a 2026-05-23 build: one session's `git add -A` swept up a second session's CLAUDE.md edit into a "fix textures" commit with a wrong message.
+2. **Stage by explicit file name, never `git add -A` / `git add .`.** Bulk-add is what lets parallel work get committed under the wrong message. Concretely relevant in this scaffold because the user often runs multiple Claude sessions concurrently on the same working tree.
+3. **Group by logical change, not by file count.** One commit per coherent unit of work.
+4. **These still need explicit per-instance consent** even with auto-commit trust: force push, `--no-verify` (hook skip), `--no-gpg-sign`, `git reset --hard` on shared branches, deleting branches, amending pushed commits.
+
 ## Do not commit
 
 - `gradle.properties` (per-host; `.example` is the committed template)
@@ -774,3 +902,323 @@ If they ask you to "rename the mod to X", run `scripts/rename_mod.sh X com.<auth
 - Anything under `.claude/` (project-local agent config)
 
 All of these are in `.gitignore`.
+
+---
+
+# Technical reference
+
+(Below: agent-facing technical depth that used to live in `DEVELOPMENT.md`. Folded in 2026-05-23 so the agent has one canonical doc to load per session. Human-facing how-to — Blender install, build commands, file layout — lives in [README.md](README.md).)
+
+## How to build a Tier A (cube-based, GeckoLib) mob
+
+GeckoLib 4.8.4 + Blockbench `.geo.json`. Axis-aligned cuboids, bone hierarchy, Bedrock-style animation. Used by Mowzie's Mobs, Alex's Mobs, Dragon Survival (yes — even their dragon body is cuboid GeckoLib; the smooth look is clever cube layouts + textures, not polygons).
+
+### Tier A sub-tier — simple vs. detailed cubes
+
+Same pipeline, different modeling discipline. Same `.geo.json` schema, same renderer, same texture-atlas approach, same Java — only the **cube count and size** change.
+
+- **Simple cubes (~5–15 large cuboids):** vanilla-shaped mobs — Steve, pig, cow, zombie. Each body part is one big cuboid (head = 8×8×8 model units, torso = 8×12×4, leg = 4×12×4). Modeling time: minutes.
+- **Detailed cubes (~30–100+ small cuboids):** Alex's Mobs / Mowzie's Mobs aesthetic. Same axis-aligned cuboids, just many small ones approximating organic shapes — a head might be 12 cubes for snout + cheeks + brow + jaw + ears + eye sockets, sized 1–3 model units each. Modeling time: hours.
+
+Don't reach for Tier B just because the user wants more detail; well-laid detailed cubes look great and skip all the OBJ gotchas.
+
+**Texture sizing rule of thumb:** simple cubes → 64×64 atlas. Detailed cubes → 128×128 or 256×256.
+
+### Tier A workflow
+
+1. **Model:** write `assets/<mod_id>/geo/entity/<name>.geo.json` in Blockbench format (cube hierarchy + bones + UVs).
+2. **Texture:** generate a 64×64 (simple) or 128×128 / 256×256 (detailed) PNG atlas matching the UV plan. Use `tools/codex_image.py` for AI-generated textures, or Pillow for hand-pixel work.
+3. **Animations:** write `assets/<mod_id>/animations/entity/<name>.animation.json` — idle/walk/attack keyframes.
+4. **Entity class:** implement `software.bernie.geckolib.animatable.GeoEntity`; provide `AnimatableInstanceCache` + `registerControllers()`. Subclass `Monster` / `Animal` / `PathfinderMob` as appropriate.
+5. **Renderer:** extend `software.bernie.geckolib.renderer.GeoEntityRenderer<T>`. Register in `MyFirstMod.ClientEvents.onRegisterRenderers`.
+
+**Visual verification before in-game testing:** open the `.geo.json` in Blockbench (`flatpak install flathub net.blockbench.Blockbench` if you don't have it). Drag-drop the texture PNG onto the model to confirm UV alignment.
+
+## Tier B — corelib library + limitations
+
+`de.maxhenkel.corelib:corelib` provides `OBJEntityRenderer<T extends Entity>` — true polygonal Wavefront `.obj` meshes rendered via `VertexConsumer`. Wired up in `build.gradle` (Maven repo: `https://maven.maxhenkel.de/repository/public/`). Used in production by Henkel's `ultimate-car-mod`, `smallships`, etc.
+
+**Limitations:**
+- Wavefront `.obj` only — no glTF, no skeletal/rigged animation. Animation is whole-model transforms only (spin wheels, bob, sway), driven from the renderer's `render()` override or the per-model `RenderListener<T>`.
+- Models must be triangulated (the exporter does this for you).
+- Texture is referenced via `OBJModelOptions` (a `ResourceLocation`), NOT via the `.obj`'s `mtllib`/`usemtl` lines.
+- OBJ goes in `assets/<mod_id>/models/entity/<name>.obj`; texture in `assets/<mod_id>/textures/entity/<name>.png`.
+
+**Out of scope:** Pixelmon-quality skeletal-rigged glTF with bone-skinned animation. That requires BlazeRod (LGPL multi-format model lib in `TouchController/TouchController`). Its render layer targets MC 1.21.8 — would be a version bump or ~200-line port to backport to 1.21.1.
+
+## The four critical OBJ gotchas (Tier B)
+
+**These are baked into `tools/corelib_obj_export.py` — if you call `export_corelib_obj()` you don't have to think about them.** If you ever hand-write an OBJ outside the helper, you must address all four yourself.
+
+1. **Face triplet required** (will crash with `ArrayIndexOutOfBoundsException: Index 2 out of bounds for length 2` on first render). corelib's `OBJModel.render` unconditionally accesses `face[N][2]` for the normal index. So **every face vertex MUST have all three components: `pos_idx/uv_idx/normal_idx`**. The compact `f a/uv b/uv c/uv` form will compile fine and crash at render time. Declare normals (`vn x y z`) and emit faces as `f a/uv/n b/uv/n c/uv/n`.
+2. **UV convention — no V-flip needed.** Blender, standard OBJ, and corelib all agree: `v=0` at image bottom, `v=1` at image top. So Blender's UVs go straight into the OBJ verbatim — `corelib_obj_export.export_corelib_obj()` defaults to `v_flip=False`. The flag is an escape hatch for the rare case of UVs authored with the opposite convention; you almost never want to set it True. (Note: an earlier release defaulted `v_flip=True` based on a misread of corelib's behavior. That caused in-game textures to render mirrored vertically while Blender previews looked correct — every body-part's texture sampled the wrong region. Fixed 2026-05-20.)
+3. **Triangulation.** corelib expects triangles. The helper triangulates a bmesh copy of each object before writing. If you hand-write OBJ from non-triangular Blender meshes, you'll need to triangulate manually.
+4. **Face winding must be CCW outward** — otherwise the mob looks see-through in-game. Minecraft's `ENTITY_CUTOUT_TRIANGLES` render path backface-culls based on triangle winding order in screen space. If your triangles are wound clockwise outward, every visible-from-outside face gets culled and you see only the *inside surface of the opposite face* through the missing front. **Blender Cycles preview will NOT catch this** because Cycles renders both sides by default — the preview looks fine while the in-game model is hollow. The helper sanity-checks the first face after writing and raises `ValueError` if normals are flipped. If it raises: in Blender, recalculate face normals (`bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])`) before re-exporting.
+
+## Headless Blender landmines
+
+These bit during initial setup. Documented so future Tier B builds don't re-hit them.
+
+1. **`bpy.context.active_object` doesn't exist in `-b` mode.** Code like `bpy.ops.mesh.primitive_cube_add(); obj = bpy.context.active_object` raises `AttributeError`. Use `bpy.context.view_layer.objects.active` instead — or better, **use the single-bmesh pattern** above, which avoids per-object `bpy.ops` calls entirely.
+2. **Built-in exporters (`wm.obj_export`, `export_scene.gltf`, `wm.stl_export`) are GUI-bound and fail headless.** They poll for window state and internally call `context.window.cursor_set('WAIT')`. `bpy.context.temp_override(...)` gets past the active_object check but not the window check. **This is why `corelib_obj_export.py` exists** — a manual exporter that reads `obj.evaluated_get(depsgraph).to_mesh()` + iterates a bmesh copy. Always use it; don't try to use the built-in exporters in `-b` mode.
+3. **`bpy.ops.render.render(write_still=True)` works fine in headless** — Cycles CPU renders cleanly. Just don't expect viewport screenshots to work.
+4. **AMD GPU (RDNA2) needs HIP/ROCm for Cycles GPU.** If ROCm isn't installed, stick with `scn.cycles.device = 'CPU'`. CPU on a modern Ryzen is fast enough (~3.6s for 960×540 @ 32 samples).
+5. **Blender preview ≠ in-game render.** Cycles renders backfaces by default, Minecraft culls them. A model with inverted winding will look fine in Blender and broken in-game. The exporter's winding check catches whole-mesh flips; for per-face flips, recalc normals before export. (Gotcha #4 above also covers this.)
+
+## Tier B Java + JSON templates (opt-in starting points)
+
+**Per the "Build fresh by default" rule near the top: these are OPT-IN.** Default to writing the Java/JSON from scratch; offer these templates as choice (b) in the structural-template question only if the user wants to save boilerplate-writing time. They encode default patterns (hostile-Monster goal set, ZOMBIE_AMBIENT sound, generic spawn-egg, walking-bob animation) that may not fit the asset the user described.
+
+Placeholders: `{Name}` PascalCase, `{name}` snake_case, `{NAME_UPPER}` UPPER_SNAKE, `{display_name}` human-readable, `{mod_id}`, `{group_path}` (e.g. `com/aicreator`), `{group_path_dots}` (e.g. `com.aicreator`), `{width}` / `{height}` hitbox in blocks.
+
+### Entity class — `src/main/java/{group_path}/{mod_id}/entity/{Name}Entity.java`
+
+```java
+package {group_path_dots}.{mod_id}.entity;
+
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
+import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
+import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
+import net.minecraft.world.entity.monster.Monster;   // or Animal for friendly
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+
+public class {Name}Entity extends Monster {
+    public {Name}Entity(EntityType<? extends Monster> type, Level level) { super(type, level); }
+    public static AttributeSupplier.Builder createAttributes() {
+        return Monster.createMonsterAttributes()
+                .add(Attributes.MAX_HEALTH, 16.0)
+                .add(Attributes.MOVEMENT_SPEED, 0.28)
+                .add(Attributes.ATTACK_DAMAGE, 3.0)
+                .add(Attributes.FOLLOW_RANGE, 20.0);
+    }
+    @Override protected void registerGoals() {
+        this.goalSelector.addGoal(0, new FloatGoal(this));
+        this.goalSelector.addGoal(2, new MeleeAttackGoal(this, 1.0, true));
+        this.goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 1.0));
+        this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 8.0F));
+        this.goalSelector.addGoal(7, new RandomLookAroundGoal(this));
+        this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
+        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
+    }
+    @Override protected SoundEvent getAmbientSound()              { return SoundEvents.ZOMBIE_AMBIENT; }
+    @Override protected SoundEvent getHurtSound(DamageSource src) { return SoundEvents.ZOMBIE_HURT; }
+    @Override protected SoundEvent getDeathSound()                { return SoundEvents.ZOMBIE_DEATH; }
+}
+```
+
+### Renderer — `src/main/java/{group_path}/{mod_id}/client/{Name}Renderer.java`
+
+```java
+package {group_path_dots}.{mod_id}.client;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
+import {group_path_dots}.{mod_id}.MyFirstMod;
+import {group_path_dots}.{mod_id}.entity.{Name}Entity;
+import de.maxhenkel.corelib.client.obj.OBJEntityRenderer;
+import de.maxhenkel.corelib.client.obj.OBJModel;
+import de.maxhenkel.corelib.client.obj.OBJModelInstance;
+import de.maxhenkel.corelib.client.obj.OBJModelOptions;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.resources.ResourceLocation;
+import org.joml.Vector3d;
+import java.util.List;
+
+public class {Name}Renderer extends OBJEntityRenderer<{Name}Entity> {
+    private static final ResourceLocation MODEL_LOC =
+            ResourceLocation.fromNamespaceAndPath(MyFirstMod.MODID, "models/entity/{name}.obj");
+    private static final ResourceLocation TEXTURE_LOC =
+            ResourceLocation.fromNamespaceAndPath(MyFirstMod.MODID, "textures/entity/{name}.png");
+    private final List<OBJModelInstance<{Name}Entity>> models;
+    public {Name}Renderer(EntityRendererProvider.Context ctx) {
+        super(ctx);
+        this.shadowRadius = 0.3f;
+        OBJModel objModel = new OBJModel(MODEL_LOC);
+        OBJModelOptions<{Name}Entity> opts = new OBJModelOptions<>(TEXTURE_LOC, new Vector3d(0.0, 0.0, 0.0));
+        this.models = List.of(new OBJModelInstance<>(objModel, opts));
+    }
+    @Override public List<OBJModelInstance<{Name}Entity>> getModels({Name}Entity entity) { return models; }
+    @Override
+    public void render({Name}Entity entity, float yaw, float partialTicks,
+                       PoseStack ms, MultiBufferSource buffer, int packedLight) {
+        // Optional whole-model animation. corelib doesn't do per-bone rigging,
+        // so any motion lives here as PoseStack transforms. The walk-bob/sway
+        // below is one example — tailor or remove for the actual mob.
+        float age = entity.tickCount + partialTicks;
+        float limbSwing = entity.walkAnimation.position(partialTicks);
+        float limbSpeed = Math.min(entity.walkAnimation.speed(partialTicks), 1.0f);
+        ms.pushPose();
+        float idleBob = Math.abs((float) Math.sin(age * 0.20f)) * 0.03f;
+        float walkBob = Math.abs((float) Math.sin(limbSwing * 0.6f)) * 0.06f * limbSpeed;
+        ms.translate(0.0, idleBob + walkBob, 0.0);
+        float walkSway = (float) Math.sin(limbSwing * 0.3f) * 4.0f * limbSpeed;
+        ms.mulPose(Axis.ZP.rotationDegrees(walkSway));
+        super.render(entity, yaw, partialTicks, ms, buffer, packedLight);
+        ms.popPose();
+    }
+}
+```
+
+### `ModEntities.java` — add this entry to the existing file
+
+```java
+public static final Supplier<EntityType<{Name}Entity>> {NAME_UPPER} =
+        ENTITY_TYPES.register("{name}", () -> EntityType.Builder
+                .of({Name}Entity::new, MobCategory.MONSTER)
+                .sized({width}, {height})
+                .clientTrackingRange(8)
+                .build(ResourceLocation.fromNamespaceAndPath(MyFirstMod.MODID, "{name}").toString()));
+```
+Plus `import {group_path_dots}.{mod_id}.entity.{Name}Entity;`
+
+### `MyFirstMod.java` — three additions
+
+```java
+// In onAttributeCreation:
+event.put(ModEntities.{NAME_UPPER}.get(), {Name}Entity.createAttributes().build());
+
+// In onSpawnPlacementRegister (skip for spawn-egg-only mobs):
+event.register(ModEntities.{NAME_UPPER}.get(),
+        net.minecraft.world.entity.SpawnPlacementTypes.ON_GROUND,
+        Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+        Monster::checkAnyLightMonsterSpawnRules,   // or Animal::checkAnimalSpawnRules for friendly
+        RegisterSpawnPlacementsEvent.Operation.REPLACE);
+
+// In ClientEvents.onRegisterRenderers:
+event.registerEntityRenderer(ModEntities.{NAME_UPPER}.get(), {Name}Renderer::new);
+```
+Plus imports for `{Name}Entity` and `{Name}Renderer`.
+
+### `ModItems.java` — spawn egg
+
+```java
+public static final DeferredItem<DeferredSpawnEggItem> {NAME_UPPER}_SPAWN_EGG =
+        ITEMS.register("{name}_spawn_egg",
+                () -> new DeferredSpawnEggItem(ModEntities.{NAME_UPPER},
+                        0xAABBCC, 0x112233,         // primary, secondary hex RGB — match the texture
+                        new Item.Properties()));
+```
+Add to creative tab: `output.accept(ModItems.{NAME_UPPER}_SPAWN_EGG.get());`
+
+### `assets/{mod_id}/lang/en_us.json` — two entries
+
+```json
+"entity.{mod_id}.{name}": "{display_name}",
+"item.{mod_id}.{name}_spawn_egg": "{display_name} Spawn Egg",
+```
+
+### `assets/{mod_id}/models/item/{name}_spawn_egg.json`
+
+```json
+{ "parent": "minecraft:item/template_spawn_egg" }
+```
+
+### `data/{mod_id}/loot_table/entities/{name}.json` — fill in drops
+
+```json
+{
+  "type": "minecraft:entity",
+  "pools": [{
+    "rolls": 1.0,
+    "entries": [{
+      "type": "minecraft:item",
+      "name": "minecraft:rotten_flesh",
+      "functions": [
+        { "function": "minecraft:set_count", "count": { "type": "minecraft:uniform", "min": 0.0, "max": 2.0 } }
+      ]
+    }]
+  }]
+}
+```
+
+## Generating AI textures — codex landmines + batch + parallel patterns
+
+`tools/codex_image.py` wraps the `codex` CLI's `image_gen` tool. Free under the user's ChatGPT subscription — no API key, no per-image cost.
+
+### Single texture: `generate()`
+
+```python
+from codex_image import generate
+generate(
+    prompt="A glowing emerald block face, vanilla Minecraft pixel-art style…",
+    out_path="/path/to/my_block.png",
+    target_size=(16, 16),   # downscales raw codex output to 16x16 nearest-neighbor for crisp pixel art
+)
+```
+
+The wrapper handles all four codex CLI landmines automatically:
+
+1. **stdin must be `/dev/null`** — codex hangs forever waiting for stdin EOF when invoked non-interactively. The wrapper uses `subprocess.run(..., stdin=subprocess.DEVNULL)`.
+2. **`--ephemeral`** — without it, session state bleeds between calls (ask for a dragon, get a mouse because the previous call generated a mouse).
+3. **`--json` + `thread_id` parsing** — codex emits `{"thread_id":"..."}` on stdout's first line. The wrapper parses this and reads exclusively from `~/.codex/generated_images/<thread_id>/` rather than snapshotting the parent dir (which races under concurrency — see parallel section below).
+4. **Flatten multi-line prompts** — single-line invocations process reliably; multi-line sometimes truncate.
+
+### Batch generation: `generate_sheet`
+
+For batch workflows — "add 8 new ore blocks," "make 5 variants of this mob skin," "generate the whole mod's item icons in one pass" — prefer `generate_sheet` over N separate `generate` calls:
+
+```python
+from codex_image import generate_sheet
+generate_sheet(
+    regions=[
+        {"name": "iron_ore",    "prompt": "stone block face with metallic iron specks scattered through gray rock"},
+        {"name": "gold_ore",    "prompt": "stone block face with golden specks"},
+        {"name": "diamond_ore", "prompt": "stone block face with cyan diamond facets"},
+        {"name": "coal_ore",    "prompt": "stone block face with black coal flecks"},
+    ],
+    cell_size=(16, 16),
+    out_dir="src/main/resources/assets/<mod_id>/textures/block",
+)
+# → writes iron_ore.png, gold_ore.png, diamond_ore.png, coal_ore.png + _sheet.png (debug)
+```
+
+**Why this beats N calls:** 1 codex call instead of N (long pole is 30–120s per call); stylistic consistency across all cells (codex paints them in one composition so palette/lighting/scale match); 1× quota usage.
+
+**How it works:** auto-picks a square grid that holds all N regions, renders each cell at `cell_size × upscale` (default 4×), slices with NEAREST downsample to `cell_size`. Cells are separated by `gap_px` solid-black gridlines (default 2px) — gives codex a strong visual cue to respect cell boundaries. Intermediate sheet saved to `out_dir/_sheet.png` for slicing debug.
+
+**When NOT to use it:**
+- Single-texture workflows (one mob skin, one block) — use `generate` instead.
+- More than ~16 regions in one sheet — each cell gets less codex attention and detail mushes. Split into multiple sheet calls.
+- Cells with very different style needs (e.g., a realistic 256×256 portrait next to a 16×16 pixel-art icon). Group same-style cells per sheet.
+
+**Quality caveat:** codex doesn't always perfectly respect the grid. Check `_sheet.png` after a run — if a cell ignored the gridlines or bled across, re-roll or fall back to per-region `generate` for that one piece.
+
+### Parallel codex calls (independent textures)
+
+Parallel codex calls work and are ~25% faster than sequential at N=2, scale cleanly to N=4. The `~/.codex/generated_images/` dir is shared across concurrent calls, but the `--json` + `thread_id` approach in `codex_image.py` sidesteps the race because each call's output lives at `~/.codex/generated_images/<thread_id>/` exclusively.
+
+To generate N textures in parallel from Python: `concurrent.futures.ThreadPoolExecutor(max_workers=4)` over `codex_image.generate(...)` calls. Each call is fully self-contained, the wrapper does the right thing.
+
+**Sweet spot: N ≤ 4.** Beyond that, variance in per-call duration (image_gen is bursty by nature — 17–55 seconds per call regardless of concurrency) eats the wall-clock benefit. For a single texture, sequential is fine and simpler. Subscription quota isn't exposed via the CLI; if you hit silent throttling, check `chat.openai.com` in the user's browser.
+
+### Pillow (Python, hand-coded) — fallback
+
+Use when:
+- You need exact pixel control (palette textures, UV-aligned skins, known-shape icons).
+- The user explicitly asked for "pixel-by-pixel" / "paint it myself with Python."
+- AI output doesn't render correctly and you need a deterministic fallback.
+- The icon is ≤32×32 pixel art (codex's value-add at that size is low; Pillow gives crisp pixel boundaries + real transparency).
+
+Rule of thumb: **AI for blocks, items, weapons, armor, and Tier B entity textures.** **Pillow for Tier A entity skins** (vanilla cube UV layout) and exact palette swatches.
+
+## Project conventions (quick reference)
+
+- **Mod loader:** NeoForge 1.21.1 (NOT Fabric, NOT legacy Forge).
+- **Java:** JDK 21 (Mojang's runtime since 1.20.5).
+- **Mappings:** Parchment (human-readable parameter names).
+- **Mod ID:** defaults to `aitemplate`; rename via `scripts/rename_mod.sh` or `scripts/setup.sh`.
+- **Base package:** `com.aicreator.aitemplate` by default; renamed by the same script.
+- **Registry pattern:** `DeferredRegister` for items, blocks, entities, creative tabs.
+- **Structure:** official NeoForge MDK layout.
