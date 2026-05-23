@@ -193,9 +193,14 @@ for o in parts:
         bbox_min = mathutils.Vector((min(bbox_min[i], wc[i]) for i in range(3)))
         bbox_max = mathutils.Vector((max(bbox_max[i], wc[i]) for i in range(3)))
 extent = bbox_max - bbox_min
-# Blender scene is Z-up → Minecraft height = extent.z, footprint = max(extent.x, extent.y).
-height = extent.z
-width  = max(extent.x, extent.y)
+# Bbox of the IN-SCENE bmesh:
+#   - If you're using pattern (A) [build Z-up + rotate-at-export]: scene is Z-up here, so
+#     in-scene "height" = extent.z (becomes Y in the final OBJ after the rotate step).
+#   - If you're using pattern (B) [Y-up throughout]: scene is Y-up here, so height = extent.y.
+# Either way, compute this sizing check BEFORE the export rotation so the values
+# represent the actual in-scene mesh you can still tweak.
+height = extent.z   # ← pattern (A); change to extent.y if you're using pattern (B)
+width  = max(extent.x, extent.y)   # ← pattern (A); max(extent.x, extent.z) for pattern (B)
 print(f"MESH EXTENT: height={height:.2f}b  width={width:.2f}b  (target tier: <Q1d>)")
 # If off-target, uniformly scale every object and re-export:
 #   target_height = 1.95   # from Q1d tier
@@ -488,12 +493,26 @@ The scaffold ships with no example mobs and the geometry of any mob built by a p
 
 ### Entity coordinate convention
 
-- **Y is up** (Minecraft convention — same as Blender's default Z-up coords get remapped on export, but `corelib_obj_export` keeps Y-up).
-- **Origin at the entity's feet** — the entity's `BoundingBox` extends UP from (0, 0, 0). Don't put parts below y=0 or they'll clip into the floor.
-- **Forward is -Z** (Minecraft convention; the entity looks toward negative Z).
-- **Typical humanoid mob size:** roughly `0.6 × 1.8 × 0.4` (width × height × depth) → put parts in approximately `x ∈ [-0.35, 0.35]`, `y ∈ [0, 1.85]`, `z ∈ [-0.25, 0.25]`. Scale down for smaller mobs, scale up for bigger ones (2-block-tall ogre, etc.).
-- **The entity's `sized(width, height)` in `ModEntities` must match** — this is the hitbox, not the visual mesh. Use width = max horizontal extent, height = max vertical extent. Round generously (e.g. mesh up to y=1.83 → register as `sized(0.7F, 1.95F)`).
-- For your test mob, set the hitbox first, then build the mesh within it.
+- **Y is up. Forward is -Z.** (Minecraft convention.) **The OBJ exporter writes Blender coordinates verbatim — it does NOT remap axes.** Your bmesh MUST be in Y-up convention (feet at Y=0, head at Y+, mob faces -Z) by the time you call `export_corelib_obj(...)`. Skipping this ships a mob that spawns **face-down** in-game (height along Z = a horizontal axis in Minecraft → mob lies on its side). Caught 2026-05-23 on Sailor Moon + Luna's first deploy.
+- **Two valid build patterns** (pick one and stick with it through the whole script):
+  - **(A) Build Z-up in Blender, rotate-to-Y-up just before export** (recommended — Blender's primitives, gizmo, and preview cameras all default to Z-up, so the in-scene work is natural):
+    ```python
+    import mathutils
+    # After all geometry + UVs are set on `bm`, immediately before `bm.to_mesh(...)`:
+    R = mathutils.Matrix(((-1, 0, 0, 0),    # (x, y, z) → (-x, z, y)
+                          ( 0, 0, 1, 0),    # Blender Z-up / forward -Y  →  MC Y-up / forward -Z
+                          ( 0, 1, 0, 0),
+                          ( 0, 0, 0, 1)))
+    bmesh.ops.transform(bm, matrix=R, verts=bm.verts[:])
+    # Recompute Y-axis bbox after the rotation to verify height landed where you wanted:
+    lo_y = min(v.co.y for v in bm.verts); hi_y = max(v.co.y for v in bm.verts)
+    print(f"post-rotate height (Y span): {hi_y - lo_y:.2f}b  feet at Y={lo_y:.2f}")
+    ```
+  - **(B) Build Y-up from the start** — treat Y as vertical from the first vertex, never use Blender's default Z-up primitives without rotating them. Working reference: `mac_n_cheese_plush.obj` was built this way (its Y span is the height, Z span is the depth). Awkward because Blender's gizmo still shows Z as up — you're constantly translating between "what Blender shows me" and "what coords mean in my script."
+- **Origin at the entity's feet** — the entity's `BoundingBox` extends UP from (0, 0, 0) in the FINAL Y-up OBJ. Don't put parts below Y=0 (in final coords) or they'll clip into the floor.
+- **Typical humanoid mob size (in final Y-up coords):** roughly `0.6 × 1.8 × 0.4` (width × height × depth) → put parts in approximately `x ∈ [-0.35, 0.35]`, `y ∈ [0, 1.85]`, `z ∈ [-0.25, 0.25]`. Scale down for smaller mobs, scale up for bigger ones (2-block-tall ogre, etc.).
+- **The entity's `sized(width, height)` in `ModEntities` must match** — this is the hitbox, not the visual mesh. After pattern (A)'s rotation OR pattern (B)'s build, use width = max horizontal extent (max of X-span and Z-span), height = Y-span. Round generously (e.g. mesh up to Y=1.83 → register as `sized(0.7F, 1.95F)`).
+- **Sanity check before export:** print `min/max` along each axis. If `height = Y-span` and `feet ≈ 0` and `max(X-span, Z-span) ≈ visual_width`, you're shipping upright. If `height = Z-span`, you forgot the rotation and the mob ships face-down.
 
 ### Required: the Blender MCP socket must be running
 
@@ -577,11 +596,30 @@ for o in parts:
     bm.to_mesh(o.data)
     bm.free()
 
-# --- 4. export OBJ — the helper handles the 4 corelib gotchas. ---
+# --- 4. ROTATE to Y-up just before export. The exporter writes Blender coords
+#       verbatim — it does NOT remap axes. The in-scene mesh above is Z-up
+#       (Blender default), so we rotate each part's bmesh to Y-up here so the
+#       OBJ ships upright in Minecraft. Skipping this = mob spawns face-down.
+#       See "Entity coordinate convention" earlier in this doc.
+import mathutils
+R = mathutils.Matrix(((-1, 0, 0, 0),    # (x, y, z) → (-x, z, y)
+                      ( 0, 0, 1, 0),    # Blender Z-up / forward -Y  →  MC Y-up / forward -Z
+                      ( 0, 1, 0, 0),
+                      ( 0, 0, 0, 1)))
+for o in parts:
+    bm2 = bmesh.new()
+    bm2.from_mesh(o.data)
+    bmesh.ops.transform(bm2, matrix=R, verts=bm2.verts[:])
+    bm2.to_mesh(o.data)
+    bm2.free()
+# (Single-bmesh builds: apply R to the single bm right before `bm.to_mesh(me)`
+#  using `bmesh.ops.transform(bm, matrix=R, verts=bm.verts[:])`.)
+
+# --- 5. export OBJ — the helper handles the 4 corelib gotchas. ---
 OBJ_PATH = "/home/<user>/repos/<this_repo>/src/main/resources/assets/<mod_id>/models/entity/<name>.obj"
 export_corelib_obj(path=OBJ_PATH)
 
-# --- 5. render multi-angle previews. The user reviews these BEFORE you
+# --- 6. render multi-angle previews. The user reviews these BEFORE you
 #       write any Java. Cycles CPU, 32 samples, 720x720, three angles. ---
 TEXTURE_PATH = "/home/<user>/repos/<this_repo>/src/main/resources/assets/<mod_id>/textures/entity/<name>.png"
 img = bpy.data.images.load(TEXTURE_PATH)
