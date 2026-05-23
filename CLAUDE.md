@@ -108,8 +108,8 @@ Keep wording in simple language — no "UV unwrap" / "bevel" / "subdivision" jar
 If they picked Tier B in Q1, you MUST also ask this — alongside Q1b in the same `AskUserQuestion` call. **This is the #1 recurring Tier B failure**: the agent unconsciously defaults to axis-aligned cubes with mild rotations even when the user wanted something organic. The user almost always picks Tier B *precisely to escape the Minecraft cube look* — don't drag them back into it by reflex. The answer here changes which Blender primitives you reach for. It must be a real question; don't assume.
 
 - "Keep it Minecraft-style — blocky parts, just tilted / angled / asymmetric (no curves)" → mostly `primitive_cube_add` with `rotation_euler`. Palette-color textures. Same aesthetic as Tier A but with rotation freedom.
-- "In-between — Minecraft-style pixel-art textures, but with rounded/organic body shapes (sphere head, tapered limbs)" → `primitive_uv_sphere_add` for heads, `primitive_cylinder_add` for limbs, bmesh-tapered cube torsos. Keep low-res pixel-art textures.
-- "Modern video-game character — sphere head, curved/tapered limbs, real proportions, smooth surfaces, painted-looking skin (PS2/PS3-era character — NOT blocky at all)" → spheres + cylinders + bmesh edits + optional Subsurf modifier. Full per-part UV unwrap with detailed textures. The biggest visual departure from Minecraft.
+- "**Articulated toy / nutcracker / ball-joint doll / plushy** — smooth primitives, but with **visible part boundaries** (sphere head sitting on torso, cylinder arms with ball-joint shoulders, cylinder legs ending where boots begin). Reads as 'assembled from parts.'" → discrete `bmesh.ops.create_uvsphere` / `create_cone` placed at coordinates, **no bridging between primitives**. Good for robots, toy soldiers, plushies, mechanical mobs, action figures, dolls.
+- "**Sculpted continuous body** — no visible part boundaries: limbs taper into wrists, neck blends into head, the whole body reads as one piece (think Pixar character, PS3-era 3D human, sculpted-clay aesthetic). NOT a collection of parts; a continuous form." → discrete primitives PLUS `bmesh.ops.bridge_loops` between adjacent primitives' edge rings + `f.smooth = True` per face + a Subsurf modifier (1–2 levels) applied before export + ring-vertex tapering along limb length. **See "Sculpted vs assembled Tier B looks (the nutcracker trap)" in the Technical reference below — this is the technique-heavy option and the agent has historically defaulted to the articulated path when this was actually wanted.**
 
 **Wording for the user (no jargon, 8-year-old language):**
 - "Made of square Minecraft-style blocks, just allowed to be tilted or angled"
@@ -715,6 +715,8 @@ print("INDIVIDUAL RENDERS:", [p for _, p in individual])
 
 For any non-trivial Tier B build (>~5 parts), build the whole mob as **one** bmesh, then convert to one Object, instead of creating many separate Blender objects with `bpy.ops.mesh.primitive_*_add` and juggling them. The multi-object pattern is fragile in headless `-b` mode and burned through 3+ iteration cycles in a prior build (mac-n-cheese plushy, 2026-05-23; Sailor Moon repeated the same bugs the next session) before this was understood.
 
+> **Important:** the single-bmesh skeleton below produces the **articulated / assembled** aesthetic (discrete primitives at coordinates → visible part boundaries → nutcracker / toy-soldier look). That's the right default for Q1c = "Articulated toy / nutcracker / plushy" but the wrong default for Q1c = "Sculpted continuous body." For sculpted, this skeleton is only the FIRST step — you must then apply the bridging + smoothing techniques in "Sculpted vs assembled Tier B looks" below. Don't ship a sculpted-character build that's only used this skeleton; it'll come out as a nutcracker.
+
 **Failure modes the multi-object pattern hits:**
 
 1. **`bpy.data.objects[-1]` doesn't return the most-recently-added object.** It's alphabetically sorted, not insertion-ordered. After `primitive_cube_add(name="torso") ; primitive_cylinder_add(name="arm")`, `objects[-1]` is `torso` (alphabetically last), not `arm`. Grabbing it then setting `scale`/`rotation_euler` rotates/scales the WRONG part. Manifests as: legs at the origin un-transformed, body floating into the sky, geometry scattered.
@@ -804,6 +806,81 @@ Notes:
 - `bmesh.ops.recalc_face_normals` once at the end fixes any CCW/CW issues before export.
 
 **Camera aiming caveat.** `to_track_quat`'s second arg is an axis string, restricted to `'X' / '-X' / 'Y' / '-Y' / 'Z' / '-Z'`. Passing a Vector raises `argument 2 must be str, not Vector`. For arbitrary up vectors (a tilted look-at, an offset top-down) build the look-at matrix by hand: `right = forward.cross(up).normalized(); up = right.cross(forward).normalized()`, then assemble a 3×3 from columns `[right, up, -forward]` and convert to Euler.
+
+### Sculpted vs assembled Tier B looks (the "nutcracker trap")
+
+The single-bmesh pattern above — `bmesh.ops.create_uvsphere` + `bmesh.ops.create_cone` placed at coordinates — produces an **assembled / articulated** aesthetic by default: visible part boundaries, ball-joint shoulders, cylinder-arm meets cylinder-bicep at a hard seam, head sits on torso without a neck, legs stop where boots begin. **This is the nutcracker / toy-soldier / ball-joint-doll look.** Three prior mobs (Nutcracker, Jester, Sailor Moon's first iteration) all came out with this aesthetic — even when the user picked the "modern video-game character" or "smooth/sculpted" option — because the agent reflexively places discrete primitives and stops there.
+
+**This look is right for some mobs.** Articulated robots, wooden toys, plushies, action figures, ball-joint dolls, mechanical creatures — anywhere the user wants visible "parts." **It's wrong for anything organic** — humans, anime characters, animals, monsters with continuous bodies. If the user picked "Sculpted continuous body" in Q1c, the discrete-primitives-only pattern is a regression to nutcracker; you need the bridging + smoothing techniques below.
+
+#### Decision: which aesthetic does the build need?
+
+Match the Q1c answer:
+
+| Q1c answer | Aesthetic | Technique |
+|---|---|---|
+| "Articulated toy / nutcracker / plushy" | assembled, visible seams | Discrete primitives at coordinates. Stop after `recalc_face_normals`. |
+| "Sculpted continuous body" | continuous, no visible part boundaries | Discrete primitives **+ bridge loops + shade smooth + Subsurf + limb tapering** (below). |
+
+#### Technique for the sculpted look
+
+After placing the discrete primitives (sphere head, cylinder neck, cylinder arms, sphere shoulder joints, etc.), add these four steps before exporting:
+
+**1. Bridge adjacent primitives' edge loops.** Find the ring of edges on each primitive that faces its neighbor (e.g., the bottom ring of the shoulder sphere + the top ring of the bicep cylinder) and join them with `bmesh.ops.bridge_loops`. The seam fills with quads and the two primitives become one continuous surface:
+
+```python
+# Helper: get the edge ring at a given Z (or X / Y) coordinate on a set of new faces.
+def ring_edges_at_z(faces, z, eps=1e-4):
+    ring = set()
+    for f in faces:
+        for e in f.edges:
+            za, zb = e.verts[0].co.z, e.verts[1].co.z
+            if abs(za - z) < eps and abs(zb - z) < eps:
+                ring.add(e)
+    return list(ring)
+
+# After placing shoulder_sphere + bicep_cylinder, with shoulder at z=1.5 and bicep top at z=1.5:
+shoulder_bottom_ring = ring_edges_at_z(shoulder_faces, z=1.5 - radius_s)
+bicep_top_ring       = ring_edges_at_z(bicep_faces,    z=1.5)
+bmesh.ops.bridge_loops(bm, edges=shoulder_bottom_ring + bicep_top_ring)
+# Shoulder now flows continuously into bicep with quads — no visible seam.
+```
+
+For this to work cleanly the two rings must have **the same vertex count** — match `u_segments` on the sphere to `vertices` on the cone/cylinder (typically 12 or 16 for both). If counts differ, use `bmesh.ops.subdivide_edges` on the smaller ring first to match.
+
+**2. Shade Smooth on every face.** Flips per-face normals to per-vertex normals; kills the flat-shaded facets that scream "polygonal model":
+
+```python
+for f in bm.faces:
+    f.smooth = True
+```
+
+**3. Subdivision Surface modifier**, 1–2 levels, applied before export. Doubles or quadruples the vertex count and smooths the silhouette into Pixar-ish curves:
+
+```python
+# After bm.to_mesh(me) and creating the Object:
+character = bpy.data.objects.new("character", me)
+bpy.context.scene.collection.objects.link(character)
+sub = character.modifiers.new("subsurf", type="SUBSURF")
+sub.levels = 2                                       # 1 = subtle, 2 = strong, 3 = mushy
+bpy.context.view_layer.objects.active = character
+bpy.ops.object.modifier_apply(modifier="subsurf")    # apply before export — modifiers don't carry to OBJ
+```
+
+**4. Taper limbs along their length** instead of leaving constant-radius cylinders. The cylinder primitive gives you a tube; real arms/legs narrow toward the wrist/ankle. Walk the ring vertices and shrink XY based on Z (along-the-limb position):
+
+```python
+# For a vertical-axis limb spanning [z_min, z_max], narrow to e.g. 55% at the top.
+for v in limb_verts:
+    t = (v.co.z - z_min) / max(z_max - z_min, 1e-6)
+    narrowing = 1.0 - 0.45 * t           # tweak per limb: 0.45 = strong taper, 0.15 = subtle
+    v.co.x *= narrowing
+    v.co.y *= narrowing
+```
+
+Do this BEFORE the subsurf step so the smoother sees a tapered base. Apply the same idea to: hair pigtails (narrow toward the tip), the neck (narrow between head and shoulders), the waist (narrow between torso and hips), the fingers (narrow toward the tip).
+
+**Smell check before export (sculpted builds):** if your `execute_blender_code` script has no `bmesh.ops.bridge_loops` calls and no `Subsurf` modifier and Q1c was "sculpted continuous body," you're about to ship a nutcracker. Stop and add the techniques above.
 
 ### Performance tip — overlap texture gen with the mesh build
 
