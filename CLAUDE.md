@@ -466,7 +466,7 @@ This replaces every old "PARTS list" / "obj_writer" / "per-mob driver script" pa
 
 The scaffold ships with no example mobs and the geometry of any mob built by a prior session must NOT be read as a style template — not the `.obj`, not the `.geo.json`, not the entity Java. The user wants every new Tier B mob built fresh from their Q1c answer + visual description.
 
-**Structural skeleton (Java class shape, renderer subclass, registration entries, lang / loot / spawn-egg JSON) comes from the copy-paste templates in [DEVELOPMENT.md → Tier B mob — Java + JSON templates](DEVELOPMENT.md#tier-b-mob--java--json-templates-copy-paste-reference) by default — not from any prior mob's files.** If you think an existing entity's Java structure would be a better starting point (e.g., it has a specific goal pattern that maps to what the user asked for), **ASK the user by name before reading it** — see "Don't infer answers from existing mobs in the repo — and ASK before using any as a structural template" above.
+**For the structural Java/JSON skeleton, default to building from scratch** — see "Build fresh by default — ASK before using ANY template or existing file as a starting point" above. The Tier B templates in [DEVELOPMENT.md](DEVELOPMENT.md#tier-b-mob--java--json-templates-copy-paste-reference) and any existing in-repo entity file are all opt-in starting points that require explicit user consent before use.
 
 ### Entity coordinate convention
 
