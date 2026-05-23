@@ -166,19 +166,35 @@ PYEOF
         fi
     done
 
+    # Reusable step-by-step for creating a 1.21.1 + NeoForge instance
+    # (we print this any time the user lacks a usable instance).
+    print_instance_create_steps() {
+        echo "  → Step-by-step (5 minutes, one-time per host):"
+        echo "      1. Open your launcher (Prism or MultiMC)"
+        echo "      2. Add Instance → Custom → Minecraft  1.21.1"
+        echo "      3. Add Loader → NeoForge → 21.1.230   (any 21.1.x works)"
+        echo "      4. Name it anything, e.g. \"AI mobs creator\" → Create"
+        echo "      5. Log in with your Microsoft / Mojang account when the launcher prompts"
+        echo "      6. Re-run scripts/setup.sh — it will auto-detect the new instance"
+    }
+
     if [[ ${#ALL_INSTANCES[@]} -eq 0 ]]; then
         echo "  No MultiMC or Prism Launcher instances detected on this host."
-        echo "  This scaffold targets NeoForge 1.21.1. Install a launcher first, e.g.:"
-        echo "    flatpak install -y flathub org.prismlauncher.PrismLauncher       # recommended (Prism, active fork)"
+        echo "  This scaffold targets NeoForge 1.21.1."
+        echo
+        echo "  Install a launcher first (Prism recommended — active fork of MultiMC):"
+        echo "    flatpak install -y flathub org.prismlauncher.PrismLauncher       # recommended"
         echo "    sudo apt install multimc                                          # older MultiMC"
-        echo "  Then create a 1.21.1 NeoForge instance in it, and re-run setup.sh."
+        echo
+        print_instance_create_steps
         echo
         MULTIMC_MODS_DIR=$(prompt "MULTIMC_MODS_DIR (enter manually for now)" \
             "$HOME/.local/share/multimc/instances/<INSTANCE>/.minecraft/mods")
     elif [[ ${#COMPAT_MODS[@]} -eq 0 ]]; then
         echo "  Found ${#ALL_INSTANCES[@]} instance(s), but none are MC 1.21.1 + NeoForge."
         echo "  This scaffold's mod won't load on Fabric, Forge, vanilla, or non-1.21.1 instances."
-        echo "  Create a 1.21.1 + NeoForge instance in your launcher, then re-run setup.sh."
+        echo
+        print_instance_create_steps
         echo
         MULTIMC_MODS_DIR=$(prompt "MULTIMC_MODS_DIR (enter manually for now)" \
             "$HOME/.local/share/multimc/instances/<INSTANCE>/.minecraft/mods")

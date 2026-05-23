@@ -4,6 +4,35 @@ An AI agent–driven scaffold for creating custom Minecraft mobs and blocks. You
 
 **This is not a normal Minecraft mod.** It's a tooling repository that AI agents work in. Cloning it gets you the scaffolding; the agent fills in the actual mod content.
 
+## First-time prerequisites (one-time per host)
+
+You need these in place **before** cloning, or `scripts/setup.sh` will tell you what's missing and stop:
+
+1. **JDK 21** — Mojang's runtime since 1.20.5:
+   ```sh
+   sudo apt install openjdk-21-jdk
+   ```
+
+2. **A Minecraft launcher with a 1.21.1 + NeoForge instance.** [Prism Launcher](https://prismlauncher.org/) is the recommended fork (active development); MultiMC also works:
+   ```sh
+   flatpak install -y flathub org.prismlauncher.PrismLauncher   # recommended
+   # OR
+   sudo apt install multimc                                      # older fork
+   ```
+   Then in the launcher:
+   - **Add Instance** → **Custom** → Minecraft **`1.21.1`**
+   - **Add Loader** → **NeoForge** → **`21.1.230`** (any 21.1.x works)
+   - Name it anything (e.g. "AI mobs creator") → **Create**
+   - Log in with your Microsoft/Mojang account when the launcher prompts
+
+3. **Claude Code** — see [claude.com/claude-code](https://claude.com/claude-code). The scaffold's `CLAUDE.md` is written for it.
+
+4. *(Optional, only for polygonal Tier B mobs)* **Blender** — `scripts/install_blender_mcp.sh` handles the install after clone; skip this if you only want blocky Tier A mobs.
+
+5. *(Optional, for AI-generated textures)* **OpenAI codex CLI** with a ChatGPT subscription. The scaffold falls back to hand-coded Pillow textures if codex isn't available.
+
+Once 1–3 are done, the three commands below get you building.
+
 ## How to use it
 
 Three commands to get going from scratch:
