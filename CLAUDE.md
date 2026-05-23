@@ -68,9 +68,23 @@ Mob builds tend to be repeat work — once a user has answered Q1/Q1b/Q1c/Q2 for
 
 The file is a single-snapshot, not a history log — each new build overwrites. If the user wants per-mob history they can grep `git log` for the mob name in their commits.
 
-### Don't infer answers from existing mobs in the repo
+### Build fresh by default — ASK before using ANY template or existing file as a starting point
 
-The scaffold ships with **no example mobs or blocks** in `src/` — that's deliberate, so you can't subconsciously inherit a prior asset's tier choice, proportions, or palette. After one or more mobs have been built in a session, the temptation will return: *"the existing mob is Tier A, so this new one should be Tier A too,"* or *"the last mob used spheres, so I'll do spheres here."* **No.** Existing files in the repo (whether shipped or built by a prior session) are reference material for **Java/JSON skeleton shape only** — never use them as a visual / geometric / personality / tier-choice / detail-level reference. Each new mob is built fresh from the user's answers (or saved preferences in `.claude/mob_preferences.md`). If you catch yourself thinking *"the existing mobs are mostly X, so X is a safe default,"* stop — that's exactly the bias the user wants you to drop. Drive every visual decision from user input, not from what's already in the repo.
+The scaffold ships with **no example mobs or blocks** in `src/`, and that's deliberate. After one or more mobs have been built in a session (or in a downstream working repo with many prior builds), the temptation will return: *"the existing mob is Tier A, so this new one should be Tier A too,"* or *"the last mob used spheres, so I'll do spheres here."* **No.** Each new asset is built fresh from the user's answers (or saved preferences in `.claude/mob_preferences.md`). If you catch yourself thinking *"the existing mobs are mostly X, so X is a safe default,"* stop — that's exactly the bias the user wants you to drop.
+
+**Default for Java/JSON skeleton structure: build from scratch.** Use your NeoForge 1.21.1 training, the official docs, and the rules in DEVELOPMENT.md as *reference material* — but do not silently copy-paste from any template (including the [DEVELOPMENT.md → Tier B mob templates](DEVELOPMENT.md#tier-b-mob--java--json-templates-copy-paste-reference)) or any existing in-repo file. Even the DEVELOPMENT.md templates encode prior structural choices (default goal sets, attribute values, registration patterns, hitbox sizes, parent classes); silently applying them biases the agent toward "standard humanoid mob" shapes regardless of what the user actually asked for.
+
+**ASK the user explicitly before using any pre-existing thing as a starting point.** Offer three named options:
+
+> *"For the structural Java/JSON skeleton, I can:*
+>   *(a) **Build from scratch** — lowest bias, I'll write boilerplate from first principles tailored to what you described.*
+>   *(b) **Start from the generic DEVELOPMENT.md template** — saves a couple minutes of boilerplate writing; still carries the template's default patterns (humanoid hitbox, standard goal set, etc.) which I'll then tailor.*
+>   *(c) **Copy the structure of an existing in-repo entity** (`<X>Entity.java` — because it has `<specific pattern>` that maps to what you asked for) — fastest if the match is close, biggest bias risk if it's not.*
+> *Which do you prefer?"*
+
+The recommended default is **(a)**. Offer (b) and (c) only when you have a specific reason to think they'd help. If the user has a saved trust preference (e.g., *"always use option b unless I say otherwise"* in `.claude/mob_preferences.md`), honor it; otherwise ask each time.
+
+Visual / geometric / personality / tier-choice / detail-level reference from existing files is **never** allowed regardless of the user's structural-template choice — those answers always come from user input.
 
 ### For a new mob
 
@@ -450,7 +464,9 @@ This replaces every old "PARTS list" / "obj_writer" / "per-mob driver script" pa
 
 ### Don't crib from any existing files in the repo
 
-The scaffold ships with no example mobs and the geometry of any mob built by a prior session must NOT be read as a style template — not the `.obj`, not the `.geo.json`, not the entity Java. The user wants every new Tier B mob built fresh from their Q1c answer + visual description. Structural skeleton (Java class shape, renderer subclass, registration entries, lang / loot / spawn-egg JSON) comes from the copy-paste templates in [DEVELOPMENT.md → Tier B mob — Java + JSON templates](DEVELOPMENT.md#tier-b-mob--java--json-templates-copy-paste-reference), not from prior mob files.
+The scaffold ships with no example mobs and the geometry of any mob built by a prior session must NOT be read as a style template — not the `.obj`, not the `.geo.json`, not the entity Java. The user wants every new Tier B mob built fresh from their Q1c answer + visual description.
+
+**Structural skeleton (Java class shape, renderer subclass, registration entries, lang / loot / spawn-egg JSON) comes from the copy-paste templates in [DEVELOPMENT.md → Tier B mob — Java + JSON templates](DEVELOPMENT.md#tier-b-mob--java--json-templates-copy-paste-reference) by default — not from any prior mob's files.** If you think an existing entity's Java structure would be a better starting point (e.g., it has a specific goal pattern that maps to what the user asked for), **ASK the user by name before reading it** — see "Don't infer answers from existing mobs in the repo — and ASK before using any as a structural template" above.
 
 ### Entity coordinate convention
 
