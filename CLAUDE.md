@@ -1096,6 +1096,12 @@ Don't reach for Tier B just because the user wants more detail; well-laid detail
 
 **Out of scope:** Pixelmon-quality skeletal-rigged glTF with bone-skinned animation. That requires BlazeRod (LGPL multi-format model lib in `TouchController/TouchController`). Its render layer targets MC 1.21.8 — would be a version bump or ~200-line port to backport to 1.21.1.
 
+**Before recommending corelib again, verify it still ships 1.21.1:** `gh api repos/henkelmax/corelib/branches --jq '.[].name'` should list `1.21.1` (coord as of May 2026: `de.maxhenkel.corelib:corelib:1.21.1-2.1.11`). If Henkel drops it, BlazeRod or a port is the fallback. Early research (May 2026) wrongly concluded "no poly-mesh loader exists for NeoForge 1.21.1" by only looking at GeckoLib/AzureLib/Citadel and dead glTF libs (MCglTF, CRglTF) — corelib was found by tracing what `ultimate-car-mod` uses. Don't repeat that.
+
+**License caveat:** corelib has no LICENSE file (Henkel's mods are typically All Rights Reserved). Fine as a Maven runtime dependency; email Max before redistributing or forking its source.
+
+**Loader default:** Shawn runs **NeoForge** on every instance. When a loader isn't stated, use NeoForge (look for `*-neoforge-<mcversion>` artifacts, not `-forge-`/`-fabric-`). If a library only ships Fabric or legacy Forge, tell him rather than silently switching. Follow an explicit "Fabric"/"Forge" request.
+
 ## The four critical OBJ gotchas (Tier B)
 
 **These are baked into `tools/corelib_obj_export.py` — if you call `export_corelib_obj()` you don't have to think about them.** If you ever hand-write an OBJ outside the helper, you must address all four yourself.
